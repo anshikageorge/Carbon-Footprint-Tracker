@@ -1,41 +1,99 @@
 import streamlit as st
-from carbon_agent import calculate_emissions, compare_to_target, generate_reduction_tips, get_ai_recommendation
+from datetime import date
 
-st.set_page_config(page_title="Carbon Footprint Tracker", page_icon="🌍", layout="centered")
-st.title("🌱 Carbon Footprint Tracker")
-st.write("Track your carbon footprint and get AI-powered suggestions.")
+from carbon_agent import (
+    calculate_emissions,
+    compare_to_target,
+    generate_reduction_tips,
+    get_ai_recommendation
+)
 
-# User Inputs
-electricity = st.number_input("⚡ Monthly Electricity Usage (kWh)", 0.0, 1000.0, 0.0, step=5.0)
-ac_hours = st.number_input("❄️ AC Usage (hours)", 0.0, 100.0, 0.0, step=1.0)
-car_km = st.number_input("🚗 Transport (Car km)", 0.0, 1000.0, 0.0, step=5.0)
-beef_meals = st.number_input("🍖 Beef meals", 0, 50, 0)
-chicken_meals = st.number_input("🍗 Chicken meals", 0, 50, 0)
-veg_meals = st.number_input("🥦 Vegetarian meals", 0, 50, 0)
-plastic_bottles = st.number_input("🥤 Plastic bottles used", 0, 100, 0)
+# -----------------------------
+# Page Config
+# -----------------------------
+st.set_page_config(
+    page_title="CarbonFootprintAgent v2.0",
+    page_icon="🌍",
+    layout="wide"
+)
 
-if st.button("🌍 Calculate Carbon Footprint"):
-    activities = {
-        "transport": {"car": car_km},
-        "energy": {"electricity": electricity, "ac": ac_hours},
-        "food": {"beef": beef_meals, "chicken": chicken_meals, "vegetarian": veg_meals},
-        "waste": {"plastic": plastic_bottles}
-    }
+st.title("🌍 CarbonFootprintAgent v2.0")
+st.caption("SDG 13 – Climate Action | IBM SkillsBuild Capstone")
 
-    daily_total, breakdown = calculate_emissions(activities)
-    vs_target = compare_to_target(daily_total)
-    tips = generate_reduction_tips(breakdown)
+# -----------------------------
+# Session State (Weekly Tracking)
+# -----------------------------
+if "history" not in st.session_state:
+    st.session_state.history = []
 
-    st.success(f"🌱 Estimated carbon footprint: **{daily_total} kg CO₂/day**")
-    st.write(f"📊 Compared to target: {vs_target}")
+# -----------------------------
+# Layout
+# -----------------------------
+col1, col2 = st.columns(2)
 
-    st.subheader("♻️ Reduction Tips")
-    for t in tips:
-        st.write(f"- {t}")
+# =============================
+# 📱 CHAT INTERFACE
+# =============================
+with col1:
+    st.subheader("📱 Chat Interface")
 
-    try:
-        st.subheader("🤖 Gemini AI Suggestions")
-        advice = get_ai_recommendation(daily_total)
-        st.write(advice)
-    except Exception as e:
-        st.warning("AI recommendations unavailable. Check your GEMINI_API_KEY.")
+    user_text = st.text_input(
+        "Describe your activities (e.g. 'Drove 30km, ate beef, used AC 2 hours')"
+    )
+
+    if st.button("Analyze"):
+        # Simple demo mapping (can be upgraded later with NLP)
+        activities = {
+            "transport": {"car": 30},
+            "energy": {"ac": 2},
+            "food": {"beef": 1},
+            "waste": {}
+        }
+
+        daily_total, breakdown = calculate_emissions(activities)
+
+        record = {
+            "date": str(date.today()),
+            "daily_total": daily_total,
+            "breakdown": breakdown
+        }
+
+        st.session_state.history.append(record)
+
+        st.json({
+            "daily_total": daily_total,
+            "breakdown": breakdown,
+            "vs_target": compare_to_target(daily_total),
+            "tips": generate_reduction_tips(breakdown)
+        })
+
+# =============================
+# 📊 DASHBOARD + CHART
+# =============================
+with col2:
+    st.subheader("📊 Metrics Dashboard")
+
+    if st.session_state.history:
+        latest = st.session_state.history[-1]
+
+        st.metric(
+            label="Daily Carbon Footprint (kg CO₂)",
+            value=latest["daily_total"],
+            delta=latest["daily_total"] - 2
+        )
+
+        st.write("**Target:** 2 kg/day")
+
+        st.subheader("📈 Weekly Progress")
+        values = [item["daily_total"] for item in st.session_state.history]
+        st.line_chart(values)
+
+        st.subheader("💡 Personalized Tips")
+        for tip in generate_reduction_tips(latest["breakdown"]):
+            st.write(tip)
+
+        st.subheader("🤖 Gemini AI Recommendations")
+        st.write(get_ai_recommendation(latest["daily_total"]))
+
+    else:
+        st.info("No activity data yet. Use the chat to begin.")
