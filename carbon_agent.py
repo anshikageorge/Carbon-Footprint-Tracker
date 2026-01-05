@@ -2,7 +2,7 @@ import os
 import google.generativeai as genai
 
 genai.configure(api_key=os.getenv("GEMINI_API_KEY"))
-model = genai.GenerativeModel("gemini-pro")
+model = genai.GenerativeModel("gemini-1.5-flash")
 
 EMISSION_FACTORS = {
     "transport": {"car": 0.2, "motorcycle": 0.1, "bus": 0.1, "train": 0.04, "flight": 0.25},
@@ -38,3 +38,4 @@ def get_ai_recommendation(carbon_value):
     prompt = f"My monthly carbon footprint is {carbon_value} kg CO2. Suggest 3 practical ways I can reduce it."
     response = model.generate_content(prompt)
     return response.text
+
