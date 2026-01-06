@@ -2,7 +2,7 @@ import re
 import streamlit as st
 import google.generativeai as genai
 
-# ---------------- GEMINI SETUP ----------------
+# ---------- GEMINI SETUP ----------
 def setup_gemini():
     try:
         genai.configure(api_key=st.secrets["GEMINI_API_KEY"])
@@ -12,7 +12,7 @@ def setup_gemini():
 
 model = setup_gemini()
 
-# ---------------- EMISSION FACTORS ----------------
+# ---------- EMISSION FACTORS ----------
 FACTORS = {
     "transport": {
         "car": 0.2,
@@ -38,26 +38,21 @@ FACTORS = {
     }
 }
 
-# ---------------- PARSER + CALCULATOR ----------------
+# ---------- CALCULATION ----------
 def calculate_emissions(text):
     text = text.lower()
 
-    breakdown = {
-        "transport": 0.0,
-        "food": 0.0,
-        "energy": 0.0,
-        "waste": 0.0
-    }
+    breakdown = {"transport": 0, "food": 0, "energy": 0, "waste": 0}
 
-    # Transport (km based)
-    km_matches = re.findall(r"(\d+)\s?km", text)
-    if km_matches:
-        km = int(km_matches[0])
+    # Transport
+    km = re.findall(r"(\d+)\s?km", text)
+    if km:
+        km = int(km[0])
         for mode in FACTORS["transport"]:
             if mode in text:
                 breakdown["transport"] += km * FACTORS["transport"][mode]
 
-    # Food (per meal)
+    # Food
     for food in FACTORS["food"]:
         if food in text:
             if food == "milk":
@@ -76,9 +71,9 @@ def calculate_emissions(text):
         breakdown["energy"] += int(kwh[0]) * FACTORS["energy"]["electricity"]
 
     # Waste
-    bottles = re.findall(r"(\d+)\s?plastic", text)
-    if bottles:
-        breakdown["waste"] += int(bottles[0]) * FACTORS["waste"]["plastic"]
+    plastic = re.findall(r"(\d+)\s?plastic", text)
+    if plastic:
+        breakdown["waste"] += int(plastic[0]) * FACTORS["waste"]["plastic"]
 
     paper = re.findall(r"(\d+)\s?paper", text)
     if paper:
@@ -87,24 +82,21 @@ def calculate_emissions(text):
     total = round(sum(breakdown.values()), 2)
     return breakdown, total
 
-# ---------------- AI TIPS ----------------
+# ---------- AI TIPS ----------
 def generate_ai_tips(breakdown, total):
     if not model:
         return [
-            "Switch to public transport or walking",
-            "Reduce AC usage and save energy",
-            "Prefer vegetarian meals more often"
+            "Switch to public transport to reduce emissions",
+            "Reduce AC usage to save energy",
+            "Choose vegetarian meals more often"
         ]
 
     prompt = f"""
 You are CarbonFootprintAgent v2.0.
-User daily emissions: {total} kg CO2e
+User daily CO2e: {total}
 Breakdown: {breakdown}
 
-Rules:
-- Generate EXACTLY 3 tips
-- Short, actionable
-- Mention percentage savings if possible
+Generate EXACTLY 3 short, actionable reduction tips.
 """
 
     try:
@@ -113,7 +105,7 @@ Rules:
         return tips[:3]
     except:
         return [
-            "Use energy-efficient appliances",
             "Reduce meat consumption",
+            "Limit air conditioner usage",
             "Avoid single-use plastics"
         ]
