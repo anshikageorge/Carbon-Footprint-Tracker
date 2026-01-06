@@ -1,49 +1,74 @@
 import streamlit as st
 import pandas as pd
 import matplotlib.pyplot as plt
-from carbon_agent import calculate_emissions, ai_tips
+from carbon_agent import calculate_emissions, generate_ai_tips
 
-st.set_page_config(page_title="Carbon Footprint Agent", layout="wide")
+st.set_page_config(page_title="CarbonFootprintAgent v2.0", layout="wide")
 
 st.title("🌍 CarbonFootprintAgent v2.0")
-st.caption("SDG 13 – Climate Action | IBM SkillsBuild Capstone")
+st.caption("SDG 13 – Climate Action | IBM SkillsBuild 2025 Capstone")
 
-if "weekly" not in st.session_state:
-    st.session_state.weekly = []
+TARGET = 2.0  # kg/day
 
-col1, col2 = st.columns([1, 1])
+# Session state
+if "weekly_data" not in st.session_state:
+    st.session_state.weekly_data = []
 
-with col1:
+# Layout
+left, right = st.columns([1.2, 1])
+
+# ---------------- CHAT INTERFACE ----------------
+with left:
     st.subheader("📱 Chat Interface")
-    user_input = st.text_area("Describe your daily activities", placeholder="Drove 30km, beef dinner, AC 2 hours")
 
-    if st.button("Calculate"):
-        breakdown, total = calculate_emissions(user_input)
-        st.session_state.weekly.append(total)
+    user_input = st.text_area(
+        "Describe your daily activities",
+        placeholder="Drove 30km, beef dinner, used AC 2 hours, 5kWh electricity"
+    )
+
+    if st.button("Analyze Footprint"):
+        breakdown, daily_total = calculate_emissions(user_input)
+        st.session_state.weekly_data.append(daily_total)
+
+        weekly_total = round(sum(st.session_state.weekly_data), 2)
+        vs_target = f"{round((daily_total / TARGET) * 100, 1)}% of 2kg sustainable daily target"
 
         st.subheader("📊 Metrics Dashboard")
-        st.metric("Daily Emissions (kg CO₂e)", round(total, 2))
-        st.metric("Sustainable Target", "2 kg/day")
+        col1, col2, col3 = st.columns(3)
+        col1.metric("Daily CO₂e", f"{daily_total} kg")
+        col2.metric("Weekly Total", f"{weekly_total} kg")
+        col3.metric("Vs Target", vs_target)
 
-        st.json(breakdown)
+        st.subheader("📄 JSON Output")
+        st.json({
+            "daily_total": daily_total,
+            "weekly_total": weekly_total,
+            "vs_target": vs_target,
+            "breakdown": breakdown
+        })
 
-        tips = ai_tips(breakdown)
-        st.subheader("💡 Personalized Tips")
-        for t in tips:
-            st.write("•", t)
+        st.subheader("💡 Personalized AI Tips")
+        tips = generate_ai_tips(breakdown, daily_total)
+        for tip in tips:
+            st.write("•", tip)
 
-with col2:
+# ---------------- PROGRESS CHART ----------------
+with right:
     st.subheader("📈 Weekly Progress Chart")
-    if st.session_state.weekly:
+
+    if st.session_state.weekly_data:
         df = pd.DataFrame({
-            "Day": range(1, len(st.session_state.weekly) + 1),
-            "Emissions": st.session_state.weekly
+            "Day": range(1, len(st.session_state.weekly_data) + 1),
+            "Emissions": st.session_state.weekly_data
         })
 
         fig, ax = plt.subplots()
-        ax.plot(df["Day"], df["Emissions"])
-        ax.axhline(2, linestyle="--")
-        ax.set_ylabel("kg CO₂e")
+        ax.plot(df["Day"], df["Emissions"], marker="o")
+        ax.axhline(TARGET, linestyle="--")
         ax.set_xlabel("Day")
+        ax.set_ylabel("kg CO₂e")
+        ax.set_title("Daily Emissions vs Sustainable Target")
 
         st.pyplot(fig)
+    else:
+        st.info("No data yet. Start by entering your daily activities.")
